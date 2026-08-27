@@ -1,0 +1,17 @@
+# Dependencias
+node_modules/
+__pycache__/
+*.pyc
+
+# Variables de entorno
+.env
+.env.local
+
+# Datos de PostgreSQL (si se llegan a montar localmente fuera de Docker)
+pgdata/
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

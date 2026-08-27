@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Empanadas La Sinfonía — Panel en Vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-stage:#12152A;
+    --bg-surface:#1B2040;
+    --bg-surface-2:#232A52;
+    --line:#323A66;
+    --masa-gold:#E3A23D;
+    --achiote:#C1521F;
+    --cream:#F3EEE2;
+    --cream-dim:#B9B6CC;
+    --sage-ok:#6FA98C;
+    --alert-red:#D2554A;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg-stage);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(227,162,61,0.08), transparent 45%),
+      radial-gradient(circle at 100% 10%, rgba(193,82,31,0.10), transparent 40%);
+    color:var(--cream);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:36px 24px 80px;}
+
+  header{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:24px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line);
+    padding-bottom:22px; margin-bottom:28px;
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--masa-gold); margin:0 0 6px;
+  }
+  h1{
+    font-family:'Fraunces', serif; font-weight:700;
+    font-size:clamp(28px, 4vw, 42px); margin:0; line-height:1.05;
+  }
+  h1 em{color:var(--masa-gold); font-style:normal;}
+  .subtitle{color:var(--cream-dim); margin:8px 0 0; font-size:14.5px; max-width:44ch;}
+
+  .status-rail{display:flex; gap:14px; align-items:center;}
+  .status-pill{
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg-surface); border:1px solid var(--line);
+    padding:8px 14px; border-radius:999px; font-size:13px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--cream-dim); flex:none;}
+  .dot.ok{background:var(--sage-ok); box-shadow:0 0 0 3px rgba(111,169,140,0.25);}
+  .dot.err{background:var(--alert-red); box-shadow:0 0 0 3px rgba(210,85,74,0.25);}
+  .dot.pulse{animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+
+  /* Barra de sesión, siempre visible */
+  .session-bar{
+    background:var(--bg-surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px 20px; margin-bottom:26px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+  }
+  .session-bar h2{font-family:'Fraunces', serif; font-size:16.5px; margin:0 0 10px; font-weight:600;}
+  .role-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .role-btn{
+    background:var(--bg-surface-2); border:1px solid var(--line); color:var(--cream);
+    padding:10px 14px; border-radius:8px; cursor:pointer; font-family:'Work Sans', sans-serif;
+    font-size:13.5px; text-align:left; transition:border-color .15s, background .15s; min-width:150px;
+  }
+  .role-btn:hover{border-color:var(--masa-gold);}
+  .role-btn.active{border-color:var(--masa-gold); background:rgba(227,162,61,0.12);}
+  .role-btn .role-name{display:block; font-weight:600;}
+  .role-btn .role-desc{display:block; color:var(--cream-dim); font-size:11.5px; margin-top:2px;}
+  .session-info{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--cream-dim);
+    display:flex; align-items:center; gap:14px;
+  }
+  .logout-link{color:var(--achiote); cursor:pointer; text-decoration:underline; font-family:'Work Sans',sans-serif;}
+
+  .role-view{display:none;}
+  .role-view.active{display:block;}
+  .view-heading{margin-bottom:18px;}
+  .view-heading .eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--masa-gold); margin:0 0 4px;
+  }
+  .view-heading h2{font-family:'Fraunces', serif; font-size:24px; margin:0; font-weight:600;}
+  .view-heading p{color:var(--cream-dim); font-size:13.5px; margin:6px 0 0;}
+
+  .grid{display:grid; grid-template-columns:1.3fr 1fr; gap:24px;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--bg-surface); border:1px solid var(--line);
+    border-radius:var(--radius); padding:22px;
+  }
+  .panel + .panel{margin-top:20px;}
+  .panel h3{
+    font-family:'Fraunces', serif; font-size:17px; margin:0 0 4px; font-weight:600;
+  }
+  .panel .hint{color:var(--cream-dim); font-size:13px; margin:0 0 16px;}
+
+  /* Catalog */
+  .catalog-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media (max-width:520px){.catalog-grid{grid-template-columns:1fr;}}
+  .empanada-card{
+    background:var(--bg-surface-2); border:1px solid var(--line); border-radius:8px;
+    padding:14px; display:flex; flex-direction:column; gap:8px;
+  }
+  .empanada-card .name{font-weight:600; font-size:14.5px;}
+  .empanada-card .masa{color:var(--cream-dim); font-size:12.5px;}
+  .empanada-card .price{
+    font-family:'IBM Plex Mono', monospace; color:var(--masa-gold); font-size:14px; margin-top:auto;
+  }
+  .qty-row{display:flex; align-items:center; gap:8px;}
+  .qty-btn{
+    width:26px; height:26px; border-radius:6px; border:1px solid var(--line);
+    background:transparent; color:var(--cream); cursor:pointer; font-size:15px; line-height:1;
+  }
+  .qty-btn:hover{border-color:var(--masa-gold);}
+  .qty-val{font-family:'IBM Plex Mono', monospace; min-width:18px; text-align:center;}
+
+  /* Cart */
+  .cart-line{
+    display:flex; justify-content:space-between; font-size:13.5px;
+    padding:6px 0; border-bottom:1px dashed var(--line);
+  }
+  .cart-total{
+    display:flex; justify-content:space-between; margin-top:10px; padding-top:10px;
+    border-top:1px solid var(--line); font-weight:600;
+  }
+  .btn-primary{
+    width:100%; margin-top:16px; padding:12px 16px; border:none; border-radius:8px;
+    background:var(--achiote); color:var(--cream); font-family:'Work Sans', sans-serif;
+    font-weight:600; font-size:14.5px; cursor:pointer; transition:filter .15s;
+  }
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary:disabled{opacity:0.45; cursor:not-allowed;}
+
+  /* Ticket rail (pedidos) */
+  .ticket-rail{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media (max-width:700px){.ticket-rail{grid-template-columns:1fr;}}
+  .ticket{
+    background:var(--bg-surface-2); border:1px solid var(--line); border-radius:8px;
+    padding:14px; position:relative;
+  }
+  .ticket::before{
+    content:""; position:absolute; left:-6px; top:50%; width:12px; height:12px;
+    background:var(--bg-stage); border-radius:50%; transform:translateY(-50%);
+  }
+  .ticket-head{display:flex; justify-content:space-between; align-items:baseline;}
+  .ticket-id{font-family:'IBM Plex Mono', monospace; color:var(--masa-gold); font-size:13px;}
+  .ticket-state{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.06em; padding:3px 9px; border-radius:999px; border:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .ticket-state.pendiente-de-pago{color:var(--achiote); border-color:var(--achiote);}
+  .ticket-state.en-cocina{color:var(--masa-gold); border-color:var(--masa-gold);}
+  .ticket-state.despachado{color:var(--sage-ok); border-color:var(--sage-ok);}
+  .ticket-state.entregado{color:var(--cream-dim);}
+  .ticket-state.pago-rechazado{color:var(--alert-red); border-color:var(--alert-red);}
+  .ticket-items{color:var(--cream-dim); font-size:12.5px; margin-top:8px; line-height:1.5;}
+  .ticket-meta{color:var(--cream-dim); font-size:11.5px; margin-top:6px; font-family:'IBM Plex Mono', monospace;}
+  .ticket-actions{display:flex; gap:8px; margin-top:12px;}
+  .mini-btn{
+    font-size:12px; padding:7px 11px; border-radius:6px; border:1px solid var(--line);
+    background:transparent; color:var(--cream); cursor:pointer;
+  }
+  .mini-btn:hover{border-color:var(--masa-gold);}
+  .mini-btn:disabled{opacity:0.5; cursor:wait;}
+  .empty{color:var(--cream-dim); font-size:13px; font-style:italic;}
+
+  .placeholder{
+    text-align:center; padding:60px 20px; border:1px dashed var(--line); border-radius:var(--radius);
+    color:var(--cream-dim);
+  }
+  .placeholder h2{font-family:'Fraunces', serif; color:var(--cream); font-weight:600; margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="brand-eyebrow">Orquestando Códigos — Panel en Vivo</p>
+      <h1>Empanadas La <em>Sinfonía</em></h1>
+      <p class="subtitle">Cada rol ve solo lo que le corresponde en la orquesta: el cliente pide, la cocina prepara, el domiciliario entrega.</p>
+    </div>
+    <div class="status-rail">
+      <div class="status-pill"><span id="dot-gateway" class="dot pulse"></span> Gateway</div>
+      <div class="status-pill" id="cache-pill"><span class="dot"></span> Caché catálogo</div>
+    </div>
+  </header>
+
+  <div class="session-bar">
+    <div>
+      <h2>Iniciar sesión como…</h2>
+      <div class="role-row">
+        <button class="role-btn" data-user="cliente1" data-pass="1234" data-role="cliente">
+          <span class="role-name">🧑 Cliente</span>
+          <span class="role-desc">cliente1 · pide empanadas</span>
+        </button>
+        <button class="role-btn" data-user="cocina1" data-pass="1234" data-role="cocina">
+          <span class="role-name">👨‍🍳 Cocina</span>
+          <span class="role-desc">cocina1 · prepara pedidos</span>
+        </button>
+        <button class="role-btn" data-user="domiciliario1" data-pass="1234" data-role="domiciliario">
+          <span class="role-name">🛵 Domiciliario</span>
+          <span class="role-desc">domiciliario1 · entrega</span>
+        </button>
+      </div>
+    </div>
+    <div class="session-info" id="session-info">
+      <span>Sin sesión activa</span>
+    </div>
+  </div>
+
+  <!-- Sin sesión -->
+  <div class="role-view active" id="view-none">
+    <div class="placeholder">
+      <h2>Elige un rol arriba para entrar a su vista</h2>
+      <p>Cada botón inicia sesión como un usuario de demo distinto (RF-01, JWT) y te lleva a la pantalla que le corresponde.</p>
+    </div>
+  </div>
+
+  <!-- VISTA CLIENTE -->
+  <div class="role-view" id="view-cliente">
+    <div class="view-heading">
+      <p class="eyebrow">Vista Cliente</p>
+      <h2>Arma tu pedido</h2>
+      <p>Consulta el catálogo, agrégalo al carrito y paga en línea.</p>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="panel">
+          <h3>Catálogo</h3>
+          <p class="hint">Disponibilidad en tiempo real vía Order Service.</p>
+          <div id="catalog" class="catalog-grid"><p class="empty">Cargando catálogo…</p></div>
+        </div>
+        <div class="panel">
+          <h3>Tu pedido</h3>
+          <p class="hint">Se envía como un solo POST /api/pedidos, protegido por el disyuntor.</p>
+          <div id="cart"><p class="empty">Aún no has agregado empanadas.</p></div>
+          <button id="btn-order" class="btn-primary" disabled>Agrega empanadas al pedido</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h3>Mis pedidos</h3>
+          <p class="hint">Se actualiza cada 3s. Paga los pendientes para que pasen a cocina.</p>
+          <div id="cliente-pedidos"><p class="empty">Aún no has hecho ningún pedido.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISTA COCINA -->
+  <div class="role-view" id="view-cocina">
+    <div class="view-heading">
+      <p class="eyebrow">Vista Cocina</p>
+      <h2>Tablero de preparación</h2>
+      <p>Pedidos ya pagados esperando o en preparación (el Kitchen Service los despacha automáticamente vía Redis Pub/Sub).</p>
+    </div>
+    <div class="panel">
+      <h3>En cocina ahora mismo</h3>
+      <p class="hint">Consulta GET /api/pedidos?estado=En cocina cada 3s.</p>
+      <div id="cocina-tickets" class="ticket-rail"><p class="empty">No hay pedidos en cocina en este momento.</p></div>
+    </div>
+  </div>
+
+  <!-- VISTA DOMICILIARIO -->
+  <div class="role-view" id="view-domiciliario">
+    <div class="view-heading">
+      <p class="eyebrow">Vista Domiciliario</p>
+      <h2>Pedidos listos para entregar</h2>
+      <p>Aquí aparecen los pedidos ya despachados por cocina. Márcalos como entregados cuando el cliente los reciba.</p>
+    </div>
+    <div class="panel">
+      <h3>Despachados</h3>
+      <p class="hint">Consulta GET /api/pedidos?estado=Despachado cada 3s.</p>
+      <div id="domiciliario-tickets" class="ticket-rail"><p class="empty">No hay pedidos despachados en este momento.</p></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:3000';
+
+let session = null; // { token, role, username }
+let catalogo = [];
+let cart = {}; // idTipo -> cantidad
+let pollTimer = null;
+
+// ---------- Health check ----------
+async function checkHealth(){
+  const dot = document.getElementById('dot-gateway');
+  try{
+    const r = await fetch(`${API}/health`);
+    if(r.ok){ dot.classList.remove('err','pulse'); dot.classList.add('ok'); }
+    else throw new Error();
+  }catch{
+    dot.classList.remove('ok','pulse'); dot.classList.add('err');
+  }
+}
+
+// ---------- Login / cambio de vista por rol ----------
+document.querySelectorAll('.role-btn').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const username = btn.dataset.user;
+    const password = btn.dataset.pass;
+    try{
+      const r = await fetch(`${API}/api/auth/login`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({username, password})
+      });
+      const data = await r.json();
+      if(!r.ok) throw new Error(data.error || 'Error de login');
+      session = { token: data.token, role: data.role, username };
+
+      document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('session-info').innerHTML =
+        `<span>Conectado como <strong>${username}</strong> (${data.role})</span><span class="logout-link" id="logout">Cerrar sesión</span>`;
+      document.getElementById('logout').addEventListener('click', logout);
+
+      showRoleView(data.role);
+    }catch(e){
+      document.getElementById('session-info').innerHTML = `<span>Error: ${e.message}</span>`;
+    }
+  });
+});
+
+function logout(){
+  session = null;
+  clearInterval(pollTimer);
+  document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('session-info').innerHTML = '<span>Sin sesión activa</span>';
+  showRoleView(null);
+}
+
+function showRoleView(role){
+  document.querySelectorAll('.role-view').forEach(v=>v.classList.remove('active'));
+  clearInterval(pollTimer);
+
+  if(role === 'cliente'){
+    document.getElementById('view-cliente').classList.add('active');
+    loadCatalog();
+    renderClientePedidos();
+    pollTimer = setInterval(renderClientePedidos, 3000);
+  } else if(role === 'cocina'){
+    document.getElementById('view-cocina').classList.add('active');
+    renderCocinaTickets();
+    pollTimer = setInterval(renderCocinaTickets, 3000);
+  } else if(role === 'domiciliario'){
+    document.getElementById('view-domiciliario').classList.add('active');
+    renderDomiciliarioTickets();
+    pollTimer = setInterval(renderDomiciliarioTickets, 3000);
+  } else {
+    document.getElementById('view-none').classList.add('active');
+  }
+}
+
+// ---------- Catálogo (vista Cliente) ----------
+async function loadCatalog(){
+  const el = document.getElementById('catalog');
+  const pill = document.getElementById('cache-pill');
+  try{
+    const r = await fetch(`${API}/api/catalogo`);
+    const data = await r.json();
+    if(data.fallback){ el.innerHTML = `<p class="empty">${data.mensaje}</p>`; return; }
+    catalogo = data.datos;
+    pill.innerHTML = data.origen === 'cache-redis'
+      ? '<span class="dot ok"></span> Redis ⚡'
+      : '<span class="dot"></span> PostgreSQL';
+
+    el.innerHTML = catalogo.map(item => `
+      <div class="empanada-card">
+        <span class="name">${item.nombre}</span>
+        <span class="masa">Masa de ${item.tipo_masa} · stock ${item.stock}</span>
+        <span class="price">$${Number(item.precio_unitario).toLocaleString('es-CO')}</span>
+        <div class="qty-row">
+          <button class="qty-btn" data-action="dec" data-id="${item.id_tipo}">−</button>
+          <span class="qty-val" id="qty-${item.id_tipo}">0</span>
+          <button class="qty-btn" data-action="inc" data-id="${item.id_tipo}">+</button>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.qty-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.dataset.id;
+        const cur = cart[id] || 0;
+        cart[id] = btn.dataset.action === 'inc' ? cur + 1 : Math.max(0, cur - 1);
+        document.getElementById(`qty-${id}`).textContent = cart[id];
+        renderCart();
+      });
+    });
+  }catch(e){
+    el.innerHTML = `<p class="empty">No se pudo cargar el catálogo (¿está corriendo docker compose?).</p>`;
+  }
+}
+
+function renderCart(){
+  const el = document.getElementById('cart');
+  const btn = document.getElementById('btn-order');
+  const items = Object.entries(cart).filter(([_,c])=>c>0);
+  if(items.length === 0){
+    el.innerHTML = '<p class="empty">Aún no has agregado empanadas.</p>';
+    btn.disabled = true;
+    btn.textContent = 'Agrega empanadas al pedido';
+    return;
+  }
+  let total = 0;
+  el.innerHTML = items.map(([id, cant])=>{
+    const tipo = catalogo.find(t=>String(t.id_tipo)===String(id));
+    const subtotal = tipo.precio_unitario * cant;
+    total += subtotal;
+    return `<div class="cart-line"><span>${cant}× ${tipo.nombre}</span><span>$${subtotal.toLocaleString('es-CO')}</span></div>`;
+  }).join('') + `<div class="cart-total"><span>Total</span><span>$${total.toLocaleString('es-CO')}</span></div>`;
+
+  btn.disabled = false;
+  btn.textContent = 'Enviar pedido a pasarela de pago';
+}
+
+document.getElementById('btn-order').addEventListener('click', async ()=>{
+  const items = Object.entries(cart).filter(([_,c])=>c>0).map(([idTipo,cantidad])=>({idTipo:Number(idTipo), cantidad}));
+  if(items.length === 0 || !session) return;
+  try{
+    const r = await fetch(`${API}/api/pedidos`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.token}`},
+      body: JSON.stringify({items})
+    });
+    const data = await r.json();
+    if(!r.ok || data.fallback) throw new Error(data.mensaje || data.error || 'No se pudo crear el pedido');
+    cart = {};
+    document.querySelectorAll('.qty-val').forEach(q=>q.textContent='0');
+    renderCart();
+    renderClientePedidos();
+  }catch(e){
+    alert(`Error al crear el pedido: ${e.message}`);
+  }
+});
+
+// ---------- Vista Cliente: mis pedidos ----------
+async function renderClientePedidos(){
+  if(!session || session.role !== 'cliente') return;
+  const el = document.getElementById('cliente-pedidos');
+  try{
+    const r = await fetch(`${API}/api/pedidos`, { headers:{'Authorization':`Bearer ${session.token}`} });
+    const data = await r.json();
+    if(data.fallback){ el.innerHTML = `<p class="empty">${data.mensaje}</p>`; return; }
+    if(!Array.isArray(data) || data.length === 0){
+      el.innerHTML = '<p class="empty">Aún no has hecho ningún pedido.</p>';
+      return;
+    }
+    el.innerHTML = `<div class="ticket-rail">${data.map(renderPedidoTicket).join('')}</div>`;
+    attachPayHandlers(el);
+  }catch{
+    el.innerHTML = '<p class="empty">No se pudo consultar tus pedidos.</p>';
+  }
+}
+
+function renderPedidoTicket(p){
+  const slug = p.estado.toLowerCase().replace(/\s+/g,'-').replace('á','a');
+  const itemsTxt = (p.items||[]).map(i=>`${i.cantidad}× ${i.nombre}`).join(', ');
+  const canPay = p.estado === 'Pendiente de pago' || p.estado === 'Pago Rechazado';
+  return `
+    <div class="ticket">
+      <div class="ticket-head">
+        <span class="ticket-id">Pedido #${p.id_pedido}</span>
+        <span class="ticket-state ${slug}">${p.estado}</span>
+      </div>
+      <div class="ticket-items">${itemsTxt || 'Sin items'}</div>
+      <div class="ticket-meta">Total $${Number(p.total_pagar).toLocaleString('es-CO')}</div>
+      ${canPay ? `<div class="ticket-actions"><button class="mini-btn" data-pay="${p.id_pedido}">Pagar pedido</button></div>` : ''}
+    </div>`;
+}
+
+function attachPayHandlers(container){
+  container.querySelectorAll('[data-pay]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      btn.disabled = true; btn.textContent = 'Procesando…';
+      try{
+        const r = await fetch(`${API}/api/pedidos/${btn.dataset.pay}/pago`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.token}`},
+          body: JSON.stringify({})
+        });
+        const data = await r.json();
+        if(data.estado_pago === 'Rechazado') alert('Pago rechazado por la pasarela simulada. Puedes intentar de nuevo.');
+        loadCatalog();
+      } finally {
+        renderClientePedidos();
+      }
+    });
+  });
+}
+
+// ---------- Vista Cocina ----------
+async function renderCocinaTickets(){
+  if(!session || session.role !== 'cocina') return;
+  const el = document.getElementById('cocina-tickets');
+  try{
+    const r = await fetch(`${API}/api/pedidos?estado=${encodeURIComponent('En cocina')}`, {
+      headers:{'Authorization':`Bearer ${session.token}`}
+    });
+    const data = await r.json();
+    if(!Array.isArray(data) || data.length === 0){
+      el.innerHTML = '<p class="empty">No hay pedidos en cocina en este momento.</p>';
+      return;
+    }
+    el.innerHTML = data.map(p => `
+      <div class="ticket">
+        <div class="ticket-head">
+          <span class="ticket-id">Pedido #${p.id_pedido}</span>
+          <span class="ticket-state en-cocina">${p.estado}</span>
+        </div>
+        <div class="ticket-items">${(p.items||[]).map(i=>`${i.cantidad}× ${i.nombre}`).join(', ') || 'Sin items'}</div>
+        <div class="ticket-meta">Cliente: ${p.cliente}</div>
+      </div>
+    `).join('');
+  }catch{
+    el.innerHTML = '<p class="empty">No se pudo consultar la cocina.</p>';
+  }
+}
+
+// ---------- Vista Domiciliario ----------
+async function renderDomiciliarioTickets(){
+  if(!session || session.role !== 'domiciliario') return;
+  const el = document.getElementById('domiciliario-tickets');
+  try{
+    const r = await fetch(`${API}/api/pedidos?estado=${encodeURIComponent('Despachado')}`, {
+      headers:{'Authorization':`Bearer ${session.token}`}
+    });
+    const data = await r.json();
+    if(!Array.isArray(data) || data.length === 0){
+      el.innerHTML = '<p class="empty">No hay pedidos despachados en este momento.</p>';
+      return;
+    }
+    el.innerHTML = data.map(p => `
+      <div class="ticket">
+        <div class="ticket-head">
+          <span class="ticket-id">Pedido #${p.id_pedido}</span>
+          <span class="ticket-state despachado">${p.estado}</span>
+        </div>
+        <div class="ticket-items">${(p.items||[]).map(i=>`${i.cantidad}× ${i.nombre}`).join(', ') || 'Sin items'}</div>
+        <div class="ticket-meta">Cliente: ${p.cliente}</div>
+        <div class="ticket-actions">
+          <button class="mini-btn" data-advance="${p.id_pedido}">Marcar como Entregado</button>
+        </div>
+      </div>
+    `).join('');
+    el.querySelectorAll('[data-advance]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        btn.disabled = true; btn.textContent = 'Actualizando…';
+        await fetch(`${API}/api/pedidos/${btn.dataset.advance}/estado`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json', 'Authorization':`Bearer ${session.token}`},
+          body: JSON.stringify({estado:'Entregado'})
+        });
+        renderDomiciliarioTickets();
+      });
+    });
+  }catch{
+    el.innerHTML = '<p class="empty">No se pudo consultar los pedidos despachados.</p>';
+  }
+}
+
+// ---------- Init ----------
+checkHealth();
+setInterval(checkHealth, 5000);
+</script>
+</body>
+</html>

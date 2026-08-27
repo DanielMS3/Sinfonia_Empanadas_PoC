@@ -1,0 +1,71 @@
+version: "3.9"
+
+# Simula localmente el despliegue "Free Tier" descrito en el informe
+# (Render.com para los servicios + Upstash Redis para el bus de eventos).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sinfonia-postgres
+    environment:
+      POSTGRES_USER: sinfonia
+      POSTGRES_PASSWORD: sinfonia
+      POSTGRES_DB: empanadas_sinfonia
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sinfonia -d empanadas_sinfonia"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sinfonia-redis
+    ports:
+      - "6379:6379"
+
+  order-service:
+    build: ./order-service
+    container_name: sinfonia-order-service
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://sinfonia:sinfonia@postgres:5432/empanadas_sinfonia
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "4000:4000"
+
+  kitchen-service:
+    build: ./kitchen-service
+    container_name: sinfonia-kitchen-service
+    environment:
+      REDIS_URL: redis://redis:6379
+      ORDER_SERVICE_URL: http://order-service:4000
+    depends_on:
+      - order-service
+      - redis
+    ports:
+      - "5000:5000"
+
+  gateway:
+    build: ./gateway
+    container_name: sinfonia-gateway
+    environment:
+      PORT: 3000
+      ORDER_SERVICE_URL: http://order-service:4000
+      JWT_SECRET: sinfonia-secret-demo
+    depends_on:
+      - order-service
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
