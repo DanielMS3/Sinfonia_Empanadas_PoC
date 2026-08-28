@@ -42,9 +42,20 @@ function verifyToken(req, res, next) {
 }
 
 // ---------- Circuit Breaker (Opossum) hacia el Order Service ----------
+// IMPORTANTE: validateStatus acepta cualquier código < 500 como respuesta "normal".
+// Así, errores de negocio (400 "sin stock", 402 "pago rechazado", 404) NO cuentan como
+// fallas del servicio ante Opossum — solo lo hacen las caídas reales, timeouts o 5xx.
+// Sin esto, un simple error de validación podía abrir el disyuntor y bloquear pedidos
+// válidos durante el resetTimeout.
 async function callOrderService(method, path, data) {
-  const resp = await axios({ method, url: `${ORDER_SERVICE_URL}${path}`, data, timeout: 3000 });
-  return resp.data;
+  const resp = await axios({
+    method,
+    url: `${ORDER_SERVICE_URL}${path}`,
+    data,
+    timeout: 3000,
+    validateStatus: (status) => status < 500,
+  });
+  return { httpStatus: resp.status, body: resp.data };
 }
 
 const breaker = new CircuitBreaker(callOrderService, {
@@ -53,20 +64,28 @@ const breaker = new CircuitBreaker(callOrderService, {
   resetTimeout: 10000,
 });
 
-// Fallback descrito en el informe (sección 4.2)
+// Fallback descrito en el informe (sección 4.2) — solo se activa ante fallas reales
 breaker.fallback(() => ({
-  fallback: true,
-  mensaje: 'El catálogo de empanadas está en reabastecimiento momentáneo. Intenta de nuevo en unos segundos.',
+  httpStatus: 503,
+  body: {
+    fallback: true,
+    mensaje: 'El catálogo de empanadas está en reabastecimiento momentáneo. Intenta de nuevo en unos segundos.',
+  },
 }));
 
 breaker.on('open', () => console.log('[CircuitBreaker] ABIERTO - Order Service no responde'));
 breaker.on('halfOpen', () => console.log('[CircuitBreaker] MEDIO ABIERTO - probando Order Service'));
 breaker.on('close', () => console.log('[CircuitBreaker] CERRADO - Order Service recuperado'));
 
+// Helper: reenvía al cliente el mismo status code que devolvió el order-service (o el fallback)
+function forward(res, result) {
+  res.status(result.httpStatus).json(result.body);
+}
+
 // ---------- RF-02: Consulta de catálogo ----------
 app.get('/api/catalogo', async (req, res) => {
-  const data = await breaker.fire('get', '/catalogo');
-  res.json(data);
+  const result = await breaker.fire('get', '/catalogo');
+  forward(res, result);
 });
 
 // ---------- RF-03: Registro de pedidos ----------
@@ -74,8 +93,8 @@ app.post('/api/pedidos', verifyToken, async (req, res) => {
   if (req.user.role !== 'cliente') {
     return res.status(403).json({ error: 'Solo los clientes pueden crear pedidos' });
   }
-  const data = await breaker.fire('post', '/pedidos', { ...req.body, cliente: req.user.username });
-  res.status(data.fallback ? 503 : 201).json(data);
+  const result = await breaker.fire('post', '/pedidos', { ...req.body, cliente: req.user.username });
+  forward(res, result);
 });
 
 // ---------- Caso de uso "Procesar Pago en Línea" ----------
@@ -83,8 +102,8 @@ app.post('/api/pedidos/:id/pago', verifyToken, async (req, res) => {
   if (req.user.role !== 'cliente') {
     return res.status(403).json({ error: 'Solo los clientes pueden procesar el pago de su pedido' });
   }
-  const data = await breaker.fire('post', `/pedidos/${req.params.id}/pago`, req.body);
-  res.status(data.fallback ? 503 : data.estado_pago === 'Rechazado' ? 402 : 200).json(data);
+  const result = await breaker.fire('post', `/pedidos/${req.params.id}/pago`, req.body);
+  forward(res, result);
 });
 
 // ---------- Listado de pedidos por rol (Cliente ve los suyos; Cocina/Domiciliario ven por estado) ----------
@@ -95,22 +114,22 @@ app.get('/api/pedidos', verifyToken, async (req, res) => {
   } else if (req.query.estado) {
     params.set('estado', req.query.estado);
   }
-  const data = await breaker.fire('get', `/pedidos?${params.toString()}`);
-  res.json(data);
+  const result = await breaker.fire('get', `/pedidos?${params.toString()}`);
+  forward(res, result);
 });
 
 // ---------- RF-04: Seguimiento y actualización de estado ----------
 app.get('/api/pedidos/:id', verifyToken, async (req, res) => {
-  const data = await breaker.fire('get', `/pedidos/${req.params.id}`);
-  res.json(data);
+  const result = await breaker.fire('get', `/pedidos/${req.params.id}`);
+  forward(res, result);
 });
 
 app.patch('/api/pedidos/:id/estado', verifyToken, async (req, res) => {
   if (!['cocina', 'domiciliario'].includes(req.user.role)) {
     return res.status(403).json({ error: 'No autorizado para actualizar el estado del pedido' });
   }
-  const data = await breaker.fire('patch', `/pedidos/${req.params.id}/estado`, req.body);
-  res.json(data);
+  const result = await breaker.fire('patch', `/pedidos/${req.params.id}/estado`, req.body);
+  forward(res, result);
 });
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'api-gateway' }));
